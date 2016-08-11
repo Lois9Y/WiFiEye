@@ -10,6 +10,9 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import io.realm.Realm;
+import io.realm.RealmConfiguration;
+
 public class MainActivity extends AppCompatActivity {
 
 
@@ -30,6 +33,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        RealmConfiguration config= new RealmConfiguration.Builder(this).build();
+        Realm.setDefaultConfiguration(config);
     }
 
     @Override

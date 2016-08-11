@@ -1,19 +1,33 @@
 package at.a9yards.wifieye;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.wifi.ScanResult;
+import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.widget.SwipeRefreshLayout;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ListAdapter;
+import android.widget.ListView;
+
 import at.a9yards.wifieye.data.Cheeses;
+import at.a9yards.wifieye.data.NetworkItem;
+import io.realm.Realm;
+import io.realm.RealmConfiguration;
+import io.realm.RealmResults;
 
 import com.example.android.swiperefreshlistfragment.SwipeRefreshListFragment;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -21,18 +35,34 @@ import java.util.List;
  */
 public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
+    private String LOG_TAG = AvailableNetworksFragment.class.getSimpleName();
     private static final int DISPLAY_ITEM_COUNT = 20;
+
+
+    private WifiManager manageWifi;
+    private WifiReceiver wifiReceiver;
+    private AvailableNetworksAdapter mAdapter;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+    }
 
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        ListAdapter adapter = new ArrayAdapter<String>(
-                getActivity(),
-                android.R.layout.simple_list_item_1,
-                android.R.id.text1,
-                Cheeses.randomList (DISPLAY_ITEM_COUNT));
-        setListAdapter(adapter);
+        //Log.d(LOG_TAG,"List view is: "+ listView);
+        Realm realm = Realm.getDefaultInstance();
+
+        mAdapter = new AvailableNetworksAdapter(getActivity(),realm.where(NetworkItem.class).findAll());
+        setListAdapter(mAdapter);
+        Log.d(LOG_TAG,"adapter set ");
+        wifiReceiver = new WifiReceiver();
+        manageWifi = (WifiManager) getActivity().getSystemService(Context.WIFI_SERVICE);
+        getActivity().registerReceiver(wifiReceiver, new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+        Log.d(LOG_TAG, "registered" );
 
         setOnRefreshListener(new 	SwipeRefreshLayout.OnRefreshListener(){
             @Override
@@ -40,48 +70,70 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                 initiateRefresh();
             }
         });
+        initiateRefresh();
+        //Log.d(LOG_TAG,"onCreate done");
+
+    }
+
+
+
+    @Override
+    public void onPause() {
+        Log.d(LOG_TAG, "unregister" );
+        getActivity().unregisterReceiver(wifiReceiver);
+        super.onPause();
+    }
+
+    @Override
+    public void onResume() {
+        Log.d(LOG_TAG, "register" );
+        super.onResume();
+        getActivity().registerReceiver(wifiReceiver, new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
     }
 
     private void initiateRefresh() {
-        new DummyBackgroundTask().execute();
+        manageWifi.startScan();
     }
 
-    private class DummyBackgroundTask extends AsyncTask<Void, Void, List<String>> {
-
-        static final int TASK_DURATION = 3 * 1000; // 3 seconds
-
+    public class WifiReceiver extends BroadcastReceiver {
         @Override
-        protected List<String> doInBackground(Void... params) {
-            // Sleep for a small amount of time to simulate a background-task
-            try {
-                Thread.sleep(TASK_DURATION);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+        public void onReceive(Context context, Intent intent) {
+            //Log.d(LOG_TAG, "recieving" );
+            if (intent.getAction().equals(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)) {
+
+                List<ScanResult> availableNetworkList = manageWifi.getScanResults();
+                Log.d(LOG_TAG, availableNetworkList.size()+" results recieved" );
+
+                Realm realm = Realm.getDefaultInstance();
+
+                for(ScanResult network : availableNetworkList ) {
+                    final NetworkItem savedNetwork = realm.where(NetworkItem.class).equalTo(NetworkItem.FIELDNAME_SSID, network.SSID).findFirst();
+                    if (savedNetwork == null) {
+                        createNetworkItemFromBroadcast(realm, network);
+
+                    } else {
+                        //update level
+                        realm.beginTransaction();
+                        savedNetwork.setLevel(network.level);
+                        realm.commitTransaction();
+                    }
+
+                }
+                mAdapter.updateData(realm.where(NetworkItem.class).findAll().sort(NetworkItem.FIELDNAME_LEVEL));
+                mAdapter.notifyDataSetChanged();
+                setRefreshing(false);
             }
-
-            // Return a new random list of cheeses
-            return Cheeses.randomList(DISPLAY_ITEM_COUNT);
         }
+    }
 
-        @Override
-        protected void onPostExecute(List<String> result) {
-            super.onPostExecute(result);
+    private void createNetworkItemFromBroadcast(Realm realm, ScanResult network){
+        NetworkItem item = new NetworkItem();
+        item.setLevel(network.level);
+        item.setSSID(network.SSID);
+        item.setPassword(null);
 
-            // Tell the Fragment that the refresh has completed
-            onRefreshComplete(result);
-        }
-        private void onRefreshComplete(List<String> result) {
-
-            // Remove all items from the ListAdapter, and then replace them with the new items
-            ArrayAdapter<String> adapter = (ArrayAdapter<String>) getListAdapter();
-            adapter.clear();
-            for (String cheese : result) {
-                adapter.add(cheese);
-            }
-
-            // Stop the refreshing indicator
-            setRefreshing(false);
-        }
-
+        realm.beginTransaction();
+        realm.copyToRealm(item); // Persist unmanaged objects
+        realm.commitTransaction();
     }
 }
