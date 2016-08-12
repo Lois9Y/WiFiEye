@@ -17,6 +17,13 @@ public class NetworkItem extends RealmObject {
     public static final String FIELDNAME_PASSWORD = "password";
     public static final String FIELDNAME_SCAN_DATE = "scanDate";
 
+    public static final int MIN_SIGNAL_LEVEL= -90;
+    public static final int BAR0_SIGNAL_LEVEL= -80;
+    public static final int BAR1_SIGNAL_LEVEL= -70;
+    public static final int BAR2_SIGNAL_LEVEL= -67;
+    public static final int BAR3_SIGNAL_LEVEL= -55;
+    public static final int BAR4_SIGNAL_LEVEL= -42;
+
     private static long uniqueKey = 0;
 
     @PrimaryKey
@@ -48,7 +55,12 @@ public class NetworkItem extends RealmObject {
     }
 
     public boolean isPasswordAvailable(){
-        return !(password == null);
+
+
+        if(password == null || password.equals(""))
+            return false;
+
+        return true;
     }
 
     public long getId() {
