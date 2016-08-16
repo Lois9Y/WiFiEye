@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        RealmConfiguration config= new RealmConfiguration.Builder(this).inMemory().build();
+        RealmConfiguration config= new RealmConfiguration.Builder(this).build();
         Realm.setDefaultConfiguration(config);
     }
 

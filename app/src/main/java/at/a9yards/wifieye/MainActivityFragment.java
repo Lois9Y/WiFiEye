@@ -40,5 +40,13 @@ public class MainActivityFragment extends Fragment {
         tabs.setDistributeEvenly(true);
         tabs.setViewPager(pager);
 
+        tabs.setCustomTabColorizer( new SlidingTabLayout.TabColorizer(){
+            @Override
+            public int getIndicatorColor(int position) {
+                return getResources().getColor(R.color.colorPrimaryDark);
+            }
+
+        });
+
     }
 }

@@ -4,7 +4,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.wifi.ScanResult;
+import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
@@ -19,6 +22,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ListAdapter;
 import android.widget.ListView;
+import android.widget.Toast;
 
 import at.a9yards.wifieye.data.Cheeses;
 import at.a9yards.wifieye.data.NetworkItem;
@@ -39,12 +43,16 @@ import java.util.List;
 public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
     private String LOG_TAG = AvailableNetworksFragment.class.getSimpleName();
-    private static final int DISPLAY_ITEM_COUNT = 20;
-
+    private static final int SCAN_REQUEST_CODE = 101;
+    public static final String SSID_FOR_SCAN = "ssid_for_scan";
 
     private WifiManager manageWifi;
     private WifiReceiver wifiReceiver;
+    private IntentFilter intentFilter;
     private AvailableNetworksAdapter mAdapter;
+
+    private CharSequence password = "";
+    private CharSequence ssid = "";
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -59,16 +67,20 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
         //Log.d(LOG_TAG,"List view is: "+ listView);
         Realm realm = Realm.getDefaultInstance();
 
-        if(mAdapter == null) {
+        if (mAdapter == null) {
             mAdapter = new AvailableNetworksAdapter(getActivity(), realm.where(NetworkItem.class).findAll());
             setListAdapter(mAdapter);
             Log.d(LOG_TAG, "adapter set ");
         }
-        if(wifiReceiver == null) {
+        if (wifiReceiver == null) {
 
             wifiReceiver = new WifiReceiver();
             manageWifi = (WifiManager) getActivity().getSystemService(Context.WIFI_SERVICE);
-            getActivity().registerReceiver(wifiReceiver, new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+            intentFilter = new IntentFilter();
+            intentFilter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
+            //intentFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
+            intentFilter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
+            getActivity().registerReceiver(wifiReceiver, intentFilter);
             Log.d(LOG_TAG, "registered");
         }
 
@@ -86,21 +98,39 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
     public void onListItemClick(ListView l, View v, int position, long id) {
         super.onListItemClick(l, v, position, id);
 
-        WifiConfiguration conf = new WifiConfiguration();
-        conf.SSID = "\""+mAdapter.getItem(position).getSSID()+"\"";
-        conf.preSharedKey ="\""+mAdapter.getItem(position).getPassword()+"\"";
+//
 
-        manageWifi.addNetwork(conf);
-        List<WifiConfiguration> list = manageWifi.getConfiguredNetworks();
+        Intent i = new Intent(getActivity(), ScanActivity.class);
+        i.putExtra(SSID_FOR_SCAN, mAdapter.getItem(position).getSSID());
+        startActivityForResult(i, SCAN_REQUEST_CODE);
+    }
 
-        for( WifiConfiguration i : list ) {
-            if(i.SSID != null && i.SSID.equals("\"" + mAdapter.getItem(position).getSSID() + "\"")) {
-                manageWifi.disconnect();
-                manageWifi.enableNetwork(i.networkId, true);
-                manageWifi.reconnect();
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if ((requestCode == SCAN_REQUEST_CODE) && (resultCode == getActivity().RESULT_OK)) {
 
-                break;
-            }
+            password = data.getExtras().getString(ScanActivityFragment.PASSWORD_SCAN_RESULT);
+            ssid = data.getExtras().getString(SSID_FOR_SCAN);
+
+
+            WifiConfiguration conf = new WifiConfiguration();
+
+//           TODO: Add Scan result to REALM
+//             Realm realm = Realm.getDefaultInstance();
+//            final NetworkItem savedNetwork = realm.where(NetworkItem.class).equalTo(NetworkItem.FIELDNAME_SSID, data.getExtras().getString(AvailableNetworksFragment.SSID_FOR_SCAN)).findFirst();
+//
+
+            conf.SSID = "\"" + ssid + "\"";
+            conf.preSharedKey = "\"" + password + "\"";
+
+
+            manageWifi.disconnect();
+            int networkId = manageWifi.addNetwork(conf);
+            manageWifi.enableNetwork(networkId, true);
+            manageWifi.reconnect();
+
+
         }
     }
 
@@ -116,7 +146,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
     public void onResume() {
         Log.d(LOG_TAG, "register");
         super.onResume();
-        getActivity().registerReceiver(wifiReceiver, new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+        getActivity().registerReceiver(wifiReceiver, intentFilter);
     }
 
     private void initiateRefresh() {
@@ -148,7 +178,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                         /**
                          * DUMMY IMPL FOR PASSWORD BELOW
                          */
-                        if(network.SSID.contains("9yards") && !network.SSID.contains("Guest"))
+                        if (network.SSID.contains("9yards") && !network.SSID.contains("Guest"))
                             savedNetwork.setPassword("\"9Ymedia#\"");
                         realm.commitTransaction();
                     }
@@ -157,9 +187,115 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                 mAdapter.updateData(realm.where(NetworkItem.class).findAll().sort(NetworkItem.FIELDNAME_LEVEL, Sort.DESCENDING));
                 mAdapter.notifyDataSetChanged();
                 setRefreshing(false);
-            }
-        }
+//            } else if (intent.getAction().equals(WifiManager.NETWORK_STATE_CHANGED_ACTION)) {
+//
+//                NetworkInfo networkInfo =
+//                        intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
+//                int duration = Toast.LENGTH_SHORT;
+//                Toast toast;
+//                switch (networkInfo.getState()) {
+//                    case CONNECTING:
+//
+//                        toast = Toast.makeText(context, "connecting", duration);
+//                        toast.show();
+//                        break;
+//                    case CONNECTED:
+//
+//                        toast = Toast.makeText(context, "connected", duration);
+//                        toast.show();
+//                        break;
+//
+//                    case DISCONNECTED:
+//                        if (networkInfo.getDetailedState() == NetworkInfo.DetailedState.FAILED) {
+//                            PasswordDialogFragment dialog = new PasswordDialogFragment();
+//                            Bundle args = new Bundle();
+//                            args.putString(PasswordDialogFragment.SSID_ARGUMENT, ssid.toString());
+//                            args.putString(PasswordDialogFragment.PASSWORD_ARGUMENT, password.toString());
+//                            dialog.setArguments(args);
+//                            dialog.show(getActivity().getSupportFragmentManager(), "dialog");
+//
+//                        }
+//                        break;
+//                }
+            } else if (intent.getAction().equals(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION)) {
 
+                /**
+                 * FOR DEBUGGING: full supplication stats changes shown
+                 */
+
+                Log.d("WifiReceiver", ">>>>SUPPLICANT_STATE_CHANGED_ACTION<<<<<<");
+                SupplicantState state = (intent.getParcelableExtra(WifiManager.EXTRA_NEW_STATE));
+                int duration = Toast.LENGTH_SHORT;
+                Toast toast;
+                toast = Toast.makeText(context, "connecting", duration);
+                toast.show();
+
+                switch (state) {
+                    case ASSOCIATED:
+                        Log.i("SupplicantState", "ASSOCIATED");
+                        break;
+                    case ASSOCIATING:
+                        Log.i("SupplicantState", "ASSOCIATING");
+                        break;
+
+                    case AUTHENTICATING:
+                        Log.i("SupplicantState", "Authenticating...");
+                        break;
+                    case COMPLETED:
+                        Log.i("SupplicantState", "Connected");
+
+                        toast = Toast.makeText(context, "connected", duration);
+                        toast.show();
+                        break;
+                    case DISCONNECTED:
+                        Log.i("SupplicantState", "Disconnected");
+                        break;
+                    case DORMANT:
+                        Log.i("SupplicantState", "DORMANT");
+                        break;
+                    case FOUR_WAY_HANDSHAKE:
+                        Log.i("SupplicantState", "FOUR_WAY_HANDSHAKE");
+                        break;
+                    case GROUP_HANDSHAKE:
+                        Log.i("SupplicantState", "GROUP_HANDSHAKE");
+                        break;
+                    case INACTIVE:
+                        Log.i("SupplicantState", "INACTIVE");
+                        break;
+                    case INTERFACE_DISABLED:
+                        Log.i("SupplicantState", "INTERFACE_DISABLED");
+                        break;
+                    case INVALID:
+                        Log.i("SupplicantState", "INVALID");
+                        break;
+                    case SCANNING:
+                        Log.i("SupplicantState", "SCANNING");
+                        break;
+                    case UNINITIALIZED:
+                        Log.i("SupplicantState", "UNINITIALIZED");
+                        break;
+                    default:
+                        Log.i("SupplicantState", "Unknown");
+                        break;
+
+                }
+                int error = intent.getIntExtra(WifiManager.EXTRA_SUPPLICANT_ERROR, -1);
+                if (error == WifiManager.ERROR_AUTHENTICATING) {
+                    PasswordDialogFragment dialog = new PasswordDialogFragment();
+                    Bundle args = new Bundle();
+                    args.putString(PasswordDialogFragment.SSID_ARGUMENT, ssid.toString());
+                    args.putString(PasswordDialogFragment.PASSWORD_ARGUMENT, password.toString());
+                    dialog.setArguments(args);
+                    dialog.show(getActivity().getSupportFragmentManager(), "dialog");
+                }
+            }
+
+        }
+    }
+
+
+    private void updateRealmItem(NetworkItem saved, ScanResult scanned) {
+        //TODO: Persist Passwords.
     }
 
     private void createNetworkItemFromBroadcast(Realm realm, ScanResult network) {
@@ -171,9 +307,8 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
         /**
          * DUMMY IMPL FOR PASSWORD BELOW
          */
-        if(network.SSID.contains("9yards") && !network.SSID.contains("Guest"))
+        if (network.SSID.contains("9yards") && !network.SSID.contains("Guest"))
             item.setPassword("\"9Ymedia#\"");
-
 
 
         realm.beginTransaction();
