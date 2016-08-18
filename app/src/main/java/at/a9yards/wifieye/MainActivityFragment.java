@@ -16,7 +16,7 @@ import com.google.samples.apps.iosched.ui.widget.SlidingTabLayout;
  */
 public class MainActivityFragment extends Fragment {
 
-    CharSequence tabNames []= {"WiFi here", "Past Scans"};
+    CharSequence tabNames []= {"WiFi here", "History"};
 
     public MainActivityFragment() {
     }
@@ -43,7 +43,7 @@ public class MainActivityFragment extends Fragment {
         tabs.setCustomTabColorizer( new SlidingTabLayout.TabColorizer(){
             @Override
             public int getIndicatorColor(int position) {
-                return getResources().getColor(R.color.colorPrimaryDark);
+                return getResources().getColor(R.color.accent);
             }
 
         });

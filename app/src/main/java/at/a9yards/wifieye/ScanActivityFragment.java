@@ -1,18 +1,15 @@
 package at.a9yards.wifieye;
 
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.PointF;
 import android.hardware.Camera;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.Toast;
 
 import java.util.List;
 
@@ -30,7 +27,6 @@ import at.nineyards.anyline.modules.ocr.AnylineOcrScanView;
 public class ScanActivityFragment extends Fragment {
 
     private final static String LOG_TAG = ScanActivity.class.getSimpleName();
-    public final static String PASSWORD_SCAN_RESULT = "password_scan_result";
     private AnylineOcrScanView scanView;
     private String ssidRequested;
 
@@ -54,6 +50,7 @@ public class ScanActivityFragment extends Fragment {
 
         scanView.copyTrainedData("tessdata/eng_no_dict.traineddata", "d142032d86da1be4dbe22dce2eec18d7");
         scanView.copyTrainedData("tessdata/deu.traineddata", "2d5190b9b62e28fa6d17b728ca195776");
+        scanView.copyTrainedData("tessdata/Calibri.traineddata", "2d5190b9b62e28fa6d17b728ca195776");
 
 //Configure the OCR for IBANs
         AnylineOcrConfig anylineOcrConfig = new AnylineOcrConfig();
@@ -119,7 +116,7 @@ public class ScanActivityFragment extends Fragment {
 
                 Intent result = new Intent();
 
-                result.putExtra(ScanActivityFragment.PASSWORD_SCAN_RESULT, anylineOcrResult.getText().trim());
+                result.putExtra(AvailableNetworksFragment.PASSWORD_SCAN_RESULT, anylineOcrResult.getText().trim());
                 result.putExtra(AvailableNetworksFragment.SSID_FOR_SCAN,ssidRequested);
                 getActivity().setResult(getActivity().RESULT_OK,result);
                 getActivity().finish();

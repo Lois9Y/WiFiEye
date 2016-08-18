@@ -4,37 +4,28 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.net.wifi.ScanResult;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
-import android.os.AsyncTask;
-import android.support.v4.app.Fragment;
+import android.support.design.widget.Snackbar;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
-import android.widget.ListAdapter;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
-import at.a9yards.wifieye.data.Cheeses;
 import at.a9yards.wifieye.data.NetworkItem;
 import io.realm.Realm;
-import io.realm.RealmConfiguration;
-import io.realm.RealmObject;
-import io.realm.RealmResults;
 import io.realm.Sort;
 
 import com.example.android.swiperefreshlistfragment.SwipeRefreshListFragment;
 
-import java.util.ArrayList;
+import org.w3c.dom.Text;
+
 import java.util.List;
 
 /**
@@ -42,9 +33,11 @@ import java.util.List;
  */
 public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
+
     private String LOG_TAG = AvailableNetworksFragment.class.getSimpleName();
-    private static final int SCAN_REQUEST_CODE = 101;
+    public static final int SCAN_REQUEST_CODE = 101;
     public static final String SSID_FOR_SCAN = "ssid_for_scan";
+    public static final String PASSWORD_SCAN_RESULT = "password_scan_result";
 
     private WifiManager manageWifi;
     private WifiReceiver wifiReceiver;
@@ -53,6 +46,10 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
     private CharSequence password = "";
     private CharSequence ssid = "";
+
+    private boolean newConnection = false;
+
+    private Snackbar snackbar;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -70,7 +67,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
         if (mAdapter == null) {
             mAdapter = new AvailableNetworksAdapter(getActivity(), realm.where(NetworkItem.class).findAll());
             setListAdapter(mAdapter);
-            Log.d(LOG_TAG, "adapter set ");
+            //Log.d(LOG_TAG, "adapter set ");
         }
         if (wifiReceiver == null) {
 
@@ -81,7 +78,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
             //intentFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
             intentFilter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
             getActivity().registerReceiver(wifiReceiver, intentFilter);
-            Log.d(LOG_TAG, "registered");
+            //Log.d(LOG_TAG, "registered");
         }
 
         setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
@@ -110,41 +107,69 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
         super.onActivityResult(requestCode, resultCode, data);
         if ((requestCode == SCAN_REQUEST_CODE) && (resultCode == getActivity().RESULT_OK)) {
 
-            password = data.getExtras().getString(ScanActivityFragment.PASSWORD_SCAN_RESULT);
+            password = data.getExtras().getString(PASSWORD_SCAN_RESULT);
             ssid = data.getExtras().getString(SSID_FOR_SCAN);
 
+            newConnection = true;
 
-            WifiConfiguration conf = new WifiConfiguration();
+            tryNewWifiConnection();
+        }
+    }
+
+    private void tryNewWifiConnection() {
+        cancelAllConnections();
+        WifiConfiguration conf = new WifiConfiguration();
 
 //           TODO: Add Scan result to REALM
 //             Realm realm = Realm.getDefaultInstance();
 //            final NetworkItem savedNetwork = realm.where(NetworkItem.class).equalTo(NetworkItem.FIELDNAME_SSID, data.getExtras().getString(AvailableNetworksFragment.SSID_FOR_SCAN)).findFirst();
 //
+        manageWifi = (WifiManager) getActivity().getSystemService(Context.WIFI_SERVICE);
+        conf.SSID = "\"" + ssid + "\"";
+        conf.preSharedKey = "\"" + password + "\"";
 
-            conf.SSID = "\"" + ssid + "\"";
-            conf.preSharedKey = "\"" + password + "\"";
+        if(!manageWifi.isWifiEnabled())
+            manageWifi.setWifiEnabled(true);
+        //Log.d(LOG_TAG, "wifi manager disconnect");
 
-
-            manageWifi.disconnect();
-            int networkId = manageWifi.addNetwork(conf);
-            manageWifi.enableNetwork(networkId, true);
-            manageWifi.reconnect();
-
-
+        int networkId = manageWifi.addNetwork(conf);
+        Log.d(LOG_TAG, "wifi manager add conf "+networkId);
+        if(networkId == -1){
+            networkId = manageWifi.updateNetwork(conf);
+            Log.d(LOG_TAG, "wifi manager updated conf "+networkId);
         }
+        if(!manageWifi.enableNetwork(networkId, true)) {
+            snackbar.dismiss();
+            snackbar = Snackbar.make(getView(), "failed to enable network \"" + ssid + "\"", Snackbar.LENGTH_LONG);
+            snackbar.show();
+            mAdapter.setListEnabled(true);
+            Log.d(LOG_TAG, "failed to enable network");
+        }
+        if(!manageWifi.reconnect())
+            Log.d(LOG_TAG, "failed to reconnect");
+        //Log.d(LOG_TAG, "wifi manager reconnect");
+    }
+
+    private void cancelAllConnections() {
+        for (WifiConfiguration configuration : manageWifi.getConfiguredNetworks()) {
+            manageWifi.disableNetwork(configuration.networkId);
+        }
+
+        manageWifi.disconnect();
+
     }
 
 
     @Override
     public void onPause() {
-        Log.d(LOG_TAG, "unregister");
+        //Log.d(LOG_TAG, "unregister");
         getActivity().unregisterReceiver(wifiReceiver);
         super.onPause();
     }
 
     @Override
     public void onResume() {
-        Log.d(LOG_TAG, "register");
+        //Log.d(LOG_TAG, "register");
         super.onResume();
         getActivity().registerReceiver(wifiReceiver, intentFilter);
     }
@@ -160,7 +185,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
             if (intent.getAction().equals(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)) {
 
                 List<ScanResult> availableNetworkList = manageWifi.getScanResults();
-                Log.d(LOG_TAG, availableNetworkList.size() + " results recieved");
+                //Log.d(LOG_TAG, availableNetworkList.size() + " results recieved");
 
                 Realm realm = Realm.getDefaultInstance();
 
@@ -175,11 +200,6 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                         //update level
                         realm.beginTransaction();
                         savedNetwork.setLevel(network.level);
-                        /**
-                         * DUMMY IMPL FOR PASSWORD BELOW
-                         */
-                        if (network.SSID.contains("9yards") && !network.SSID.contains("Guest"))
-                            savedNetwork.setPassword("\"9Ymedia#\"");
                         realm.commitTransaction();
                     }
 
@@ -207,10 +227,10 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 //
 //                    case DISCONNECTED:
 //                        if (networkInfo.getDetailedState() == NetworkInfo.DetailedState.FAILED) {
-//                            PasswordDialogFragment dialog = new PasswordDialogFragment();
+//                            ConnectionFailedDialogFragment dialog = new ConnectionFailedDialogFragment();
 //                            Bundle args = new Bundle();
-//                            args.putString(PasswordDialogFragment.SSID_ARGUMENT, ssid.toString());
-//                            args.putString(PasswordDialogFragment.PASSWORD_ARGUMENT, password.toString());
+//                            args.putString(ConnectionFailedDialogFragment.SSID_ARGUMENT, ssid.toString());
+//                            args.putString(ConnectionFailedDialogFragment.PASSWORD_ARGUMENT, password.toString());
 //                            dialog.setArguments(args);
 //                            dialog.show(getActivity().getSupportFragmentManager(), "dialog");
 //
@@ -223,70 +243,97 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                  * FOR DEBUGGING: full supplication stats changes shown
                  */
 
-                Log.d("WifiReceiver", ">>>>SUPPLICANT_STATE_CHANGED_ACTION<<<<<<");
+                Log.d(LOG_TAG, ">>>>SUPPLICANT_STATE_CHANGED_ACTION<<<<<<");
                 SupplicantState state = (intent.getParcelableExtra(WifiManager.EXTRA_NEW_STATE));
                 int duration = Toast.LENGTH_SHORT;
                 Toast toast;
-                toast = Toast.makeText(context, "connecting", duration);
-                toast.show();
+
+                if (newConnection) {
+
+                    snackbar = Snackbar.make(getView(), "Connecting to \"" + ssid + "\" with password: " + password, Snackbar.LENGTH_INDEFINITE)
+                            .setAction("CANCEL", new  View.OnClickListener() {
+                        @Override
+                        public void onClick (View v){
+                            mAdapter.setListEnabled(true);
+                            cancelAllConnections();
+                        }
+                    });
+                    TextView text =
+                            (TextView)snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);
+                    text.setTextColor(getResources().getColor(R.color.icons));
+
+                    Log.d(LOG_TAG,((TextView)snackbar.getView().findViewById(android.support.design.R.id.snackbar_text)).getText().toString());
+                    snackbar.show();
+                    newConnection = false;
+                    mAdapter.setListEnabled(false);
+                }
 
                 switch (state) {
                     case ASSOCIATED:
-                        Log.i("SupplicantState", "ASSOCIATED");
+                        Log.i(LOG_TAG, "ASSOCIATED");
                         break;
                     case ASSOCIATING:
-                        Log.i("SupplicantState", "ASSOCIATING");
+                        Log.i(LOG_TAG, "ASSOCIATING");
                         break;
 
                     case AUTHENTICATING:
-                        Log.i("SupplicantState", "Authenticating...");
+                        Log.i(LOG_TAG, "Authenticating...");
                         break;
                     case COMPLETED:
-                        Log.i("SupplicantState", "Connected");
-
-                        toast = Toast.makeText(context, "connected", duration);
-                        toast.show();
+                        Log.i(LOG_TAG, "Connected");
                         break;
                     case DISCONNECTED:
-                        Log.i("SupplicantState", "Disconnected");
+                        Log.i(LOG_TAG, "Disconnected");
                         break;
                     case DORMANT:
-                        Log.i("SupplicantState", "DORMANT");
+                        Log.i(LOG_TAG, "DORMANT");
                         break;
                     case FOUR_WAY_HANDSHAKE:
-                        Log.i("SupplicantState", "FOUR_WAY_HANDSHAKE");
+                        Log.i(LOG_TAG, "FOUR_WAY_HANDSHAKE");
                         break;
                     case GROUP_HANDSHAKE:
-                        Log.i("SupplicantState", "GROUP_HANDSHAKE");
+                        Log.i(LOG_TAG, "GROUP_HANDSHAKE");
                         break;
                     case INACTIVE:
-                        Log.i("SupplicantState", "INACTIVE");
+                        Log.i(LOG_TAG, "INACTIVE");
+                        //showOnce on new network connection:
+
                         break;
                     case INTERFACE_DISABLED:
-                        Log.i("SupplicantState", "INTERFACE_DISABLED");
+                        Log.i(LOG_TAG, "INTERFACE_DISABLED");
                         break;
                     case INVALID:
-                        Log.i("SupplicantState", "INVALID");
+                        Log.i(LOG_TAG, "INVALID");
                         break;
                     case SCANNING:
-                        Log.i("SupplicantState", "SCANNING");
+                        Log.i(LOG_TAG, "SCANNING");
                         break;
                     case UNINITIALIZED:
-                        Log.i("SupplicantState", "UNINITIALIZED");
+                        Log.i(LOG_TAG, "UNINITIALIZED");
                         break;
                     default:
-                        Log.i("SupplicantState", "Unknown");
+                        Log.i(LOG_TAG, "Unknown");
                         break;
 
                 }
                 int error = intent.getIntExtra(WifiManager.EXTRA_SUPPLICANT_ERROR, -1);
-                if (error == WifiManager.ERROR_AUTHENTICATING) {
-                    PasswordDialogFragment dialog = new PasswordDialogFragment();
+                if (error != -1) {
+                    if(snackbar!= null)
+                        snackbar.dismiss();
+                    mAdapter.setListEnabled(true);
+                    ConnectionFailedDialogFragment dialog = new ConnectionFailedDialogFragment();
                     Bundle args = new Bundle();
-                    args.putString(PasswordDialogFragment.SSID_ARGUMENT, ssid.toString());
-                    args.putString(PasswordDialogFragment.PASSWORD_ARGUMENT, password.toString());
+                    args.putString(ConnectionFailedDialogFragment.SSID_ARGUMENT, ssid.toString());
+                    args.putString(ConnectionFailedDialogFragment.PASSWORD_ARGUMENT, password.toString());
                     dialog.setArguments(args);
+                    dialog.setTargetFragment(AvailableNetworksFragment.this, AvailableNetworksFragment.SCAN_REQUEST_CODE);
                     dialog.show(getActivity().getSupportFragmentManager(), "dialog");
+
+                }
+
+                if (intent.getBooleanExtra(WifiManager.EXTRA_SUPPLICANT_CONNECTED, false)) {
+                    Snackbar.make(getView(), "Connected to " + ssid, Snackbar.LENGTH_LONG)
+                            .setAction("Action", null).show();
                 }
             }
 
@@ -303,12 +350,6 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
         item.setLevel(network.level);
         item.setSSID(network.SSID);
         item.setPassword("");
-
-        /**
-         * DUMMY IMPL FOR PASSWORD BELOW
-         */
-        if (network.SSID.contains("9yards") && !network.SSID.contains("Guest"))
-            item.setPassword("\"9Ymedia#\"");
 
 
         realm.beginTransaction();
