@@ -139,10 +139,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
             Log.d(LOG_TAG, "wifi manager updated conf "+networkId);
         }
         if(!manageWifi.enableNetwork(networkId, true)) {
-            snackbar.dismiss();
-            snackbar = Snackbar.make(getView(), "failed to enable network \"" + ssid + "\"", Snackbar.LENGTH_LONG);
-            snackbar.show();
-            mAdapter.setListEnabled(true);
+
             Log.d(LOG_TAG, "failed to enable network");
         }
         if(!manageWifi.reconnect())
@@ -296,8 +293,13 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                         break;
                     case INACTIVE:
                         Log.i(LOG_TAG, "INACTIVE");
-                        //showOnce on new network connection:
-
+                        //Something went wrong:
+                        if(snackbar != null && snackbar.isShown()) {
+                            snackbar.dismiss();
+                            snackbar = Snackbar.make(getView(), "failed to enable network \"" + ssid + "\"", Snackbar.LENGTH_LONG);
+                            snackbar.show();
+                            mAdapter.setListEnabled(true);
+                        }
                         break;
                     case INTERFACE_DISABLED:
                         Log.i(LOG_TAG, "INTERFACE_DISABLED");
