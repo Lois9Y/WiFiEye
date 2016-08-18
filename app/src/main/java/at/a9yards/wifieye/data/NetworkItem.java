@@ -2,6 +2,7 @@ package at.a9yards.wifieye.data;
 
 import java.util.Date;
 
+import io.realm.Realm;
 import io.realm.RealmObject;
 import io.realm.annotations.PrimaryKey;
 import io.realm.annotations.Required;
@@ -24,7 +25,6 @@ public class NetworkItem extends RealmObject {
     public static final int BAR3_SIGNAL_LEVEL= -55;
     public static final int BAR4_SIGNAL_LEVEL= -42;
 
-    private static long uniqueKey = 0;
 
     @PrimaryKey
     private long id;
@@ -36,7 +36,13 @@ public class NetworkItem extends RealmObject {
     private Date scanDate;
 
     public NetworkItem() {
-        this.id = ++uniqueKey;
+        Realm realm = Realm.getDefaultInstance();
+        try {
+            this.id = realm.where(NetworkItem.class).max("id").intValue() +1;
+        } catch(ArrayIndexOutOfBoundsException ex) {
+            this.id = 0;
+        }
+
     }
 
     @Override

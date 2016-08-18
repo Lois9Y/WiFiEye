@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "583333591826",
+    "firebase_url": "https://wifieye-bb3a1.firebaseio.com",
+    "project_id": "wifieye-bb3a1",
+    "storage_bucket": "wifieye-bb3a1.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:583333591826:android:1a592ce793d3ad03",
+        "android_client_info": {
+          "package_name": "at.a9yards.wifieye"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "583333591826-b72hsgguevgafl361ej76nm2jm4pl60v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDv6DHeOdrzWWZtO9jEHTIzK-p5JWlSbls"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
