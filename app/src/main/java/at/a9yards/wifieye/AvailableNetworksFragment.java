@@ -247,7 +247,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                 SupplicantState state = (intent.getParcelableExtra(WifiManager.EXTRA_NEW_STATE));
 
 
-                if (newConnection) {
+                if (newConnection && !ssid.equals("")) {
 
                     snackbar = Snackbar.make(getView(), "Connecting to \"" + ssid + "\" with password: " + password, Snackbar.LENGTH_INDEFINITE)
                             .setAction("CANCEL", new  View.OnClickListener() {
@@ -330,7 +330,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
                 }
                 int error = intent.getIntExtra(WifiManager.EXTRA_SUPPLICANT_ERROR, -1);
-                if (error != -1) {
+                if (error != -1 && !ssid.equals("")) {
                     if(snackbar!= null)
                         snackbar.dismiss();
                     mAdapter.setListEnabled(true);

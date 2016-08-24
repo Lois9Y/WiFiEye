@@ -27,6 +27,10 @@ public class ConnectionFailedDialogFragment extends DialogFragment {
         ssid = args.getString(SSID_ARGUMENT);
     }
 
+
+
+
+
     @NonNull
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {

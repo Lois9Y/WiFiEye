@@ -65,8 +65,9 @@ public class ScannedNetworksAdapter extends RealmBaseAdapter<NetworkItem> implem
             @Override
             public void onClick(View v) {
                 Realm realm = Realm.getDefaultInstance();
+                NetworkItem item = realm.where(NetworkItem.class).equalTo(NetworkItem.FIELDNAME_SSID,adapterData.get(position).getSSID()).findFirst();
                 realm.beginTransaction();
-                realm.where(NetworkItem.class).equalTo(NetworkItem.FIELDNAME_SSID,adapterData.get(position).getSSID()).findAll().deleteAllFromRealm();
+                item.setPassword(null);
                 realm.commitTransaction();
                 ScannedNetworksAdapter.this.notifyDataSetChanged();
             }

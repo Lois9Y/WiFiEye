@@ -25,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
 
 
-        RealmConfiguration config= new RealmConfiguration.Builder(this).build();
+        RealmConfiguration config= new RealmConfiguration.Builder(this).inMemory().build();
         Realm.setDefaultConfiguration(config);
     }
 
