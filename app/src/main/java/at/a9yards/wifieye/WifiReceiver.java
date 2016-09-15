@@ -7,6 +7,7 @@ import android.net.wifi.ScanResult;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
+import android.os.AsyncTask;
 import android.util.Log;
 
 import java.util.List;
@@ -178,54 +179,11 @@ public class WifiReceiver extends BroadcastReceiver {
     public void tryNewWifiConnection(String ssid, String password) {
         this.ssid = ssid;
         this.password = password;
+        new TryConnection().execute();
         //cancelAllConnections();
-        WifiConfiguration found = findNetworkInExistingConfig("\"" + ssid + "\"");
-
+    }
+    public void stopConnection(){
         mWifiManager.disconnect();
-        int networkId = -1;
-        if (found == null) {
-            Log.d(LOG_TAG, " network not found");
-            found = getNewWifiConfig();
-            networkId = mWifiManager.addNetwork(found);
-        } else {
-            //statusView.setText(R.string.wifi_modifying_network);
-            Log.d(LOG_TAG, "found network " + found.networkId);
-            WifiConfiguration sparse = new WifiConfiguration();
-            sparse.networkId = found.networkId;
-            sparse.preSharedKey = "\"" + this.password + "\"";
-            //Log.d(LOG_TAG,sparse.toString());
-            networkId = mWifiManager.updateNetwork(sparse);
-            if (networkId < 0) {
-                Log.d(LOG_TAG, "unable to update " + networkId);
-                listener.onNewWifiConnectionFailed();
-                newConnection = false;
-                mWifiManager.reassociate();
-                return;
-            }
-        }
-
-        Log.d(LOG_TAG, "Inserted/Modified network " + networkId);
-        if (networkId < 0) {
-            Log.d(LOG_TAG, "FAILURE_ADDING_NETWORK_CONFIG");
-            listener.onNewWifiConnectionFailed();
-            return;
-        }
-
-
-        if (!mWifiManager.saveConfiguration()) {
-            Log.d(LOG_TAG, "FAILURE_SAVING_NETWORK_CONFIGURATION");
-            listener.onNewWifiConnectionFailed();
-            return;
-        }
-
-        // Try to disable the current network and start a new one.
-        if (!mWifiManager.enableNetwork(networkId, true)) {
-            Log.d(LOG_TAG, "FAILURE_STARTING_NEW_NETWORK");
-            listener.onNewWifiConnectionFailed();
-            return;
-        }
-        newConnection = true;
-        mWifiManager.reassociate();
     }
 
     public WifiConfiguration findNetworkInExistingConfig(String ssid) {
@@ -261,6 +219,60 @@ public class WifiReceiver extends BroadcastReceiver {
         wifiConfig.SSID = "\"" + this.ssid + "\"";
 
         return wifiConfig;
+    }
+    private class TryConnection extends AsyncTask<String, Void, Void> {
+        @Override
+        protected Void doInBackground(String... params) {
+
+            WifiConfiguration found = findNetworkInExistingConfig("\"" + ssid + "\"");
+
+            mWifiManager.disconnect();
+            int networkId = -1;
+            if (found == null) {
+                Log.d(LOG_TAG, " network not found");
+                found = getNewWifiConfig();
+                networkId = mWifiManager.addNetwork(found);
+            } else {
+                //statusView.setText(R.string.wifi_modifying_network);
+                Log.d(LOG_TAG, "found network " + found.networkId);
+                WifiConfiguration sparse = new WifiConfiguration();
+                sparse.networkId = found.networkId;
+                sparse.preSharedKey = "\"" + password + "\"";
+                //Log.d(LOG_TAG,sparse.toString());
+                networkId = mWifiManager.updateNetwork(sparse);
+                if (networkId < 0) {
+                    Log.d(LOG_TAG, "unable to update " + networkId);
+                    listener.onNewWifiConnectionFailed();
+                    newConnection = false;
+                    mWifiManager.reassociate();
+                    return null;
+                }
+            }
+
+            Log.d(LOG_TAG, "Inserted/Modified network " + networkId);
+            if (networkId < 0) {
+                Log.d(LOG_TAG, "FAILURE_ADDING_NETWORK_CONFIG");
+                listener.onNewWifiConnectionFailed();
+                return null;
+            }
+
+
+            if (!mWifiManager.saveConfiguration()) {
+                Log.d(LOG_TAG, "FAILURE_SAVING_NETWORK_CONFIGURATION");
+                listener.onNewWifiConnectionFailed();
+                return null;
+            }
+
+            // Try to disable the current network and start a new one.
+            if (!mWifiManager.enableNetwork(networkId, true)) {
+                Log.d(LOG_TAG, "FAILURE_STARTING_NEW_NETWORK");
+                listener.onNewWifiConnectionFailed();
+                return null;
+            }
+            newConnection = true;
+            mWifiManager.reassociate();
+            return null;
+        }
     }
 }
 

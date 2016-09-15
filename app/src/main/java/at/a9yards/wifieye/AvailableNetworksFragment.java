@@ -60,7 +60,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
     @Override
     public void onResume() {
         super.onResume();
-        snackbar = Snackbar.make(getView(),"dummy",Snackbar.LENGTH_SHORT);
+        snackbar = Snackbar.make(getView(), R.string.snackbar_dummy,Snackbar.LENGTH_SHORT);
         getActivity().registerReceiver(wifiReceiver, intentFilter);
     }
 
@@ -126,7 +126,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
     private void connectionEstablished() {
         if (snackbar != null) {
             snackbar.dismiss();
-            snackbar = Snackbar.make(getView(), "connection established \"" + ssid + "\"", Snackbar.LENGTH_SHORT);
+            snackbar = Snackbar.make(getView(), String.format(getResources().getString(R.string.snackbar_connection_established),ssid), Snackbar.LENGTH_SHORT);
             snackbar.show();
             TextView text =
                     (TextView) snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);
@@ -147,12 +147,12 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
         @Override
         public void onNewWifiConnectionCreated() {
-            snackbar = Snackbar.make(getView(), "Connecting to \"" + ssid + "\" with password: " + password, Snackbar.LENGTH_INDEFINITE)
-                    .setAction("CANCEL", new View.OnClickListener() {
+            snackbar = Snackbar.make(getView(), String.format(getResources().getString(R.string.snackbar_connecting),ssid,password), Snackbar.LENGTH_INDEFINITE)
+                    .setAction(getResources().getString(R.string.button_text_cancel), new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
                             mAdapter.setListEnabled(true);
-
+                            wifiReceiver.stopConnection();
                         }
                     });
             TextView text =
@@ -166,7 +166,13 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
         @Override
         public void onNewWifiConnectionFailed() {
-            snackbar = Snackbar.make(getView(), "Cannot edit WiFi connection " + ssid + "- locked by device Wifi Manager", Snackbar.LENGTH_LONG);
+            snackbar = Snackbar.make(getView(), String.format(getResources().getString(R.string.snackbar_connection_failure),ssid), Snackbar.LENGTH_INDEFINITE)
+                    .setAction(getResources().getString(R.string.button_text_retry), new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            AvailableNetworksFragment.this.wifiReceiver.tryNewWifiConnection(""+ssid,""+password);
+                        }
+                    });
             snackbar.show();
             TextView text =
                     (TextView) snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);

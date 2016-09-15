@@ -16,7 +16,7 @@ import com.google.samples.apps.iosched.ui.widget.SlidingTabLayout;
  */
 public class MainActivityFragment extends Fragment {
 
-    CharSequence tabNames []= {"WiFi here", "History"};
+    CharSequence tabNames [];
 
     public MainActivityFragment() {
     }
@@ -30,6 +30,7 @@ public class MainActivityFragment extends Fragment {
     @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
+        tabNames = new CharSequence[]{getResources().getString(R.string.title_wifi_tab), getResources().getString(R.string.title_history_tab)};
 
         ViewPagerAdapter adapter = new ViewPagerAdapter(getActivity().getSupportFragmentManager(),tabNames);
 

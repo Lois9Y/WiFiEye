@@ -64,10 +64,17 @@ public class LayoutTest {
 
         //onView(allOf(withText(MockData.ssid1)),hasSibling()).check(matches(isDisplayed()));
         //onData(arrayWithSize(2)).atPosition(0).check(matches(isDisplayed()));
-        onView(allOf(withText(MockData.ssid1),isDisplayed())).check(matches(hasSibling(withId(R.id.avail_net_strength))));
-        onView(allOf(withText(MockData.ssid1),isDisplayed())).check(matches(hasSibling(withId(R.id.avail_net_pass_avail))));
-        onView(allOf(withText(MockData.ssid2),isDisplayed())).check(matches(hasSibling(withId(R.id.avail_net_strength))));
-        onView(allOf(withText(MockData.ssid2),isDisplayed())).check(matches(hasSibling(withId(R.id.avail_net_pass_avail))));
+        onView(allOf(withText(MockData.ssid1),isDisplayed()))
+                .check(matches(
+                allOf(
+                        hasSibling(withId(R.id.avail_net_strength)),
+                        hasSibling(withId(R.id.avail_net_pass_avail)))));
+
+        onView(allOf(withText(MockData.ssid2),isDisplayed()))
+                .check(matches(
+                allOf(
+                        hasSibling(withId(R.id.avail_net_strength)),
+                        hasSibling(withId(R.id.avail_net_pass_avail)))));
     }
 
     @Test

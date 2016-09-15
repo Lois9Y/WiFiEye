@@ -109,9 +109,9 @@ public class ScanActivityFragment extends Fragment {
 
             @Override
             public void onAbortRun(AnylineOcrError anylineOcrError, String s) {
-                Intent result = new Intent();
-                getActivity().setResult(getActivity().RESULT_CANCELED,result);
-                getActivity().finish();
+//                Intent result = new Intent();
+//                getActivity().setResult(getActivity().RESULT_CANCELED,result);
+//                getActivity().finish();
             }
 
             @Override
