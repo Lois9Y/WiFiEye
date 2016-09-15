@@ -41,7 +41,7 @@ import static org.hamcrest.Matchers.arrayWithSize;
 
 @RunWith(AndroidJUnit4.class)
 @LargeTest
-public class ApplicationTest {
+public class LayoutTest {
     @Rule
     public ActivityTestRule<MainActivity> activityTestRule = new ActivityTestRule<MainActivity>(MainActivity.class);
 

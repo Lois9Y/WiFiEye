@@ -12,6 +12,7 @@ public class MockData {
     public static int strongLevel = NetworkItem.BAR3_SIGNAL_LEVEL +1;
     public static int weakLevel = NetworkItem.BAR1_SIGNAL_LEVEL -1;
     public static String password = "somepassword";
+    public static String password2 = "someOtherPassword";
 
     public static NetworkItem createNetworkItemWithPassword(){
         NetworkItem withPass = new NetworkItem();

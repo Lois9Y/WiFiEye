@@ -60,6 +60,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
     @Override
     public void onResume() {
         super.onResume();
+        snackbar = Snackbar.make(getView(),"dummy",Snackbar.LENGTH_SHORT);
         getActivity().registerReceiver(wifiReceiver, intentFilter);
     }
 
@@ -165,7 +166,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
         @Override
         public void onNewWifiConnectionFailed() {
-            snackbar = Snackbar.make(getView(), "Cannot edit WiFi connection " + ssid + "- locked by device owner", Snackbar.LENGTH_LONG);
+            snackbar = Snackbar.make(getView(), "Cannot edit WiFi connection " + ssid + "- locked by device Wifi Manager", Snackbar.LENGTH_LONG);
             snackbar.show();
             TextView text =
                     (TextView) snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);

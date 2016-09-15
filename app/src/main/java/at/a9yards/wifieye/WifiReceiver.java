@@ -230,6 +230,8 @@ public class WifiReceiver extends BroadcastReceiver {
 
     public WifiConfiguration findNetworkInExistingConfig(String ssid) {
         List<WifiConfiguration> existingConfigs = mWifiManager.getConfiguredNetworks();
+        if (existingConfigs == null)
+            return null;
         for (WifiConfiguration existingConfig : existingConfigs) {
             if (existingConfig.SSID.equals(ssid)) {
                 return existingConfig;
