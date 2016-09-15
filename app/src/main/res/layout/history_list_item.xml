@@ -28,7 +28,7 @@
         />
 
     <ImageButton
-        style="@style/Widget.AppCompat.Button.Colored"
+        style="?android:attr/borderlessButtonStyle"
         android:layout_width="56dp"
         android:layout_height="56dp"
         android:layout_marginRight="16dp"

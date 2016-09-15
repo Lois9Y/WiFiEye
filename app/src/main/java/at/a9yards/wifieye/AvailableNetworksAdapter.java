@@ -42,12 +42,12 @@ public class AvailableNetworksAdapter extends RealmBaseAdapter<NetworkItem> impl
 
         final TextView  ssidTextView;
         final ImageView strength;
-        final ImageButton passAvail;
+        final ImageView passAvail;
 
         public ViewHolder(View container) {
             this.ssidTextView = (TextView) container.findViewById(R.id.avail_net_ssid);
             this.strength = (ImageView) container.findViewById(R.id.avail_net_strength);
-            this.passAvail = (ImageButton) container.findViewById(R.id.avail_net_pass_avail);
+            this.passAvail = (ImageView) container.findViewById(R.id.avail_net_pass_avail);
 
         }
     }
@@ -84,11 +84,13 @@ public class AvailableNetworksAdapter extends RealmBaseAdapter<NetworkItem> impl
         //viewHolder.passAvail.setText( ""+item.isPasswordAvailable());
         //viewHolder.passAvail.setText( ""+item.isPasswordAvailable());
         if(adapterData.get(position).isPasswordAvailable()){
+            viewHolder.passAvail.setVisibility(View.VISIBLE);
             viewHolder.passAvail.setImageResource(R.drawable.ic_done_black_48dp);
+            viewHolder.passAvail.getDrawable().setColorFilter(convertView.getResources().getColor(R.color.accent), PorterDuff.Mode.SRC_ATOP);
         }else{
-            viewHolder.passAvail.setImageResource(R.drawable.ic_visibility_black_48dp);
+            viewHolder.passAvail.setVisibility(View.GONE);
         }
-        viewHolder.passAvail.getDrawable().setColorFilter(convertView.getResources().getColor(R.color.icons), PorterDuff.Mode.SRC_ATOP);
+
 
 
         return convertView;

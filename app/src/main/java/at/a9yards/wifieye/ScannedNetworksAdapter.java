@@ -59,7 +59,7 @@ public class ScannedNetworksAdapter extends RealmBaseAdapter<NetworkItem> implem
         viewHolder.ssidTextView.setText( item.getSSID());
 
         viewHolder.deleteButton.setImageResource(R.drawable.ic_clear_black_24dp);
-        viewHolder.deleteButton.getDrawable().setColorFilter(convertView.getResources().getColor(R.color.icons), PorterDuff.Mode.SRC_ATOP);
+        viewHolder.deleteButton.getDrawable().setColorFilter(convertView.getResources().getColor(R.color.accent), PorterDuff.Mode.SRC_ATOP);
 
         viewHolder.deleteButton.setOnClickListener(new View.OnClickListener() {
             @Override
