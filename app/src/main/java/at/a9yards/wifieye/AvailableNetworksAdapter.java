@@ -38,7 +38,7 @@ public class AvailableNetworksAdapter extends RealmBaseAdapter<NetworkItem> impl
         super(context, data);
     }
 
-    public static class ViewHolder {
+    private static class ViewHolder {
 
         final TextView  ssidTextView;
         final ImageView strength;
@@ -68,11 +68,12 @@ public class AvailableNetworksAdapter extends RealmBaseAdapter<NetworkItem> impl
 
         ViewHolder viewHolder;
         if (convertView == null){
-            Log.d(LOG_TAG,"init viewholder ");
+            //Log.d(LOG_TAG,"init viewholder ");
             convertView = inflater.inflate(R.layout.avail_list_item,parent,false);
             viewHolder = new ViewHolder(convertView);
             convertView.setTag(viewHolder);
         }else{
+            //Log.d(LOG_TAG,"init recycle viewholder ");
             viewHolder = (ViewHolder) convertView.getTag();
         }
 

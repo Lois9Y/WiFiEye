@@ -10,9 +10,9 @@
     <string name="dialog_message_stub">Password: </string>
     <string name="dialog_title">Unable to connect to</string>
     <string name="snackbar_dummy">dummy</string>
-    <string name="snackbar_connection_established">connection established; to: %1$s </string>
+    <string name="snackbar_connection_established">connection established to: %1$s </string>
     <string name="snackbar_connecting">Connecting to: %1$s, with password: %2$s  </string>
-    <string name="snackbar_connection_failure">Cannot edit WiFi connection %1$s - locked by device Wifi Manager</string>
+    <string name="snackbar_connection_failure">Cannot edit WiFi connection: %1$s - locked by device</string>
     <string name="button_text_retry">RETRY</string>
     <string name="button_text_cancel">@android:string/cancel</string>
     <string name="title_wifi_tab">WiFi here</string>
