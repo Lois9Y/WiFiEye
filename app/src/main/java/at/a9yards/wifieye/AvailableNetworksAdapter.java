@@ -2,6 +2,7 @@ package at.a9yards.wifieye;
 
 import android.content.Context;
 import android.graphics.PorterDuff;
+import android.net.wifi.ScanResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -14,11 +15,15 @@ import android.widget.LinearLayout;
 import android.widget.ListAdapter;
 import android.widget.TextView;
 
+import java.util.List;
+
 import io.realm.OrderedRealmCollection;
+import io.realm.Realm;
 import io.realm.RealmBaseAdapter;
 
 
 import at.a9yards.wifieye.data.NetworkItem;
+import io.realm.Sort;
 
 /**
  * Created by Lois-9Y on 11/08/2016.
@@ -101,6 +106,50 @@ public class AvailableNetworksAdapter extends RealmBaseAdapter<NetworkItem> impl
         return R.drawable.ic_signal_wifi_4_bar_black_24dp;
     }
 
+    public void synchronizeData(List<ScanResult>availableNetworkList){
+        Realm realm = Realm.getDefaultInstance();
+
+        for (android.net.wifi.ScanResult network : availableNetworkList) {
+            if (network.level < NetworkItem.MIN_SIGNAL_LEVEL)
+                continue;
+            final NetworkItem savedNetwork = realm.where(NetworkItem.class).equalTo(NetworkItem.FIELDNAME_SSID, network.SSID).findFirst();
+            if (savedNetwork == null) {
+                createNetworkItemFromBroadcast(realm, network);
+
+            } else {
+                //update level
+                realm.beginTransaction();
+                savedNetwork.setLevel(network.level);
+                realm.commitTransaction();
+            }
+
+        }
+        updateData(realm.where(NetworkItem.class).findAll().sort(NetworkItem.FIELDNAME_LEVEL, Sort.DESCENDING));
+        notifyDataSetChanged();
+
+    }
+
+    private void createNetworkItemFromBroadcast(Realm realm, android.net.wifi.ScanResult network) {
+        NetworkItem item = new NetworkItem();
+        item.setLevel(network.level);
+        item.setSSID(network.SSID);
+        item.setPassword("");
 
 
+        realm.beginTransaction();
+        realm.copyToRealm(item); // Persist unmanaged objects
+        realm.commitTransaction();
+
+    }
+
+    public void persistPassword (String ssid, String password){
+        Realm realm = Realm.getDefaultInstance();
+        NetworkItem persistHere = realm.where(NetworkItem.class).equalTo(NetworkItem.FIELDNAME_SSID, ssid.toString()).findFirst();
+        if (persistHere != null) {
+            realm.beginTransaction();
+            persistHere.setPassword(password.toString());
+            realm.commitTransaction();
+            notifyDataSetChanged();
+        }
+    }
 }

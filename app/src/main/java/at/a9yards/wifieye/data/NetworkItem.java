@@ -35,22 +35,22 @@ public class NetworkItem extends RealmObject {
     private String password;
     private Date scanDate;
 
-    private static boolean noIdYet = true;
+    //private static boolean noIdYet = true;
 
     public NetworkItem() {
         Realm realm = Realm.getDefaultInstance();
-
-        if(noIdYet) {
+        Number maxID = realm.where(NetworkItem.class).max("id");
+        if(maxID == null) {
             this.id = 0;
-            noIdYet =false;
         }else {
             try {
-                this.id = realm.where(NetworkItem.class).max("id").intValue() + 1;
+                this.id = maxID.intValue() + 1;
             } catch (ArrayIndexOutOfBoundsException ex) {
                 this.id = 0;
             }
         }
     }
+
 
     @Override
     public boolean equals(Object o) {

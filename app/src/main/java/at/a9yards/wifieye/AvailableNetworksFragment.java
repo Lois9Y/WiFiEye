@@ -1,13 +1,19 @@
 package at.a9yards.wifieye;
 
+import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
+import android.os.Handler;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.support.design.widget.Snackbar;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -57,17 +63,28 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
     }
 
+
+    @Override
+    public void onPause() {
+        getActivity().unregisterReceiver(wifiReceiver);
+        super.onPause();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        getActivity().registerReceiver(wifiReceiver, intentFilter);
+    }
+
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        //Log.d(LOG_TAG,"List view is: "+ listView);
         Realm realm = Realm.getDefaultInstance();
 
         if (mAdapter == null) {
             mAdapter = new AvailableNetworksAdapter(getActivity(), realm.where(NetworkItem.class).findAll());
             setListAdapter(mAdapter);
-            //Log.d(LOG_TAG, "adapter set ");
         }
         if (wifiReceiver == null) {
 
@@ -75,10 +92,8 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
             manageWifi = (WifiManager) getActivity().getSystemService(Context.WIFI_SERVICE);
             intentFilter = new IntentFilter();
             intentFilter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
-            //intentFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
             intentFilter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
             getActivity().registerReceiver(wifiReceiver, intentFilter);
-            //Log.d(LOG_TAG, "registered");
         }
 
         setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
@@ -88,7 +103,6 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
             }
         });
         initiateRefresh();
-        //Log.d(LOG_TAG,"onCreate done")
     }
 
     @Override
@@ -96,14 +110,14 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
         super.onListItemClick(l, v, position, id);
 
         NetworkItem item = mAdapter.getItem(position);
-        if(item.isPasswordAvailable()){
+        if (item.isPasswordAvailable()) {
             password = item.getPassword();
             ssid = item.getSSID();
 
             newConnection = true;
             tryNewWifiConnection();
 
-        }else {
+        } else {
             Intent i = new Intent(getActivity(), ScanActivity.class);
             i.putExtra(SSID_FOR_SCAN, mAdapter.getItem(position).getSSID());
             startActivityForResult(i, SCAN_REQUEST_CODE);
@@ -124,88 +138,86 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
     }
 
     private void tryNewWifiConnection() {
-        cancelAllConnections();
-        WifiConfiguration conf = new WifiConfiguration();
-
-//           TODO: Add Scan result to REALM
-//             Realm realm = Realm.getDefaultInstance();
-//            final NetworkItem savedNetwork = realm.where(NetworkItem.class).equalTo(NetworkItem.FIELDNAME_SSID, data.getExtras().getString(AvailableNetworksFragment.SSID_FOR_SCAN)).findFirst();
-//
-        manageWifi = (WifiManager) getActivity().getSystemService(Context.WIFI_SERVICE);
-        conf.SSID = "\"" + ssid + "\"";
-        conf.preSharedKey = "\"" + password + "\"";
-
-        if(!manageWifi.isWifiEnabled())
-            manageWifi.setWifiEnabled(true);
-        //Log.d(LOG_TAG, "wifi manager disconnect");
-
-        int networkId = manageWifi.addNetwork(conf);
-        Log.d(LOG_TAG, "wifi manager add conf "+networkId);
-        if(networkId == -1){
-            networkId = manageWifi.updateNetwork(conf);
-            Log.d(LOG_TAG, "wifi manager updated conf "+networkId);
-        }
-        if(!manageWifi.enableNetwork(networkId, true)) {
-
-            Log.d(LOG_TAG, "failed to enable network");
-        }
-        if(!manageWifi.reconnect())
-            Log.d(LOG_TAG, "failed to reconnect");
-        //Log.d(LOG_TAG, "wifi manager reconnect");
-    }
-
-    private void cancelAllConnections() {
-        for (WifiConfiguration configuration : manageWifi.getConfiguredNetworks()) {
-            manageWifi.disableNetwork(configuration.networkId);
-        }
+        //cancelAllConnections();
+        WifiConfiguration found = findNetworkInExistingConfig("\"" + ssid + "\"");
 
         manageWifi.disconnect();
+        int networkId = -1;
+        if (found == null) {
+            Log.d(LOG_TAG, " network not found");
+            found = getNewWifiConfig();
+            networkId = manageWifi.addNetwork(found);
+        } else {
+            //statusView.setText(R.string.wifi_modifying_network);
+            Log.d(LOG_TAG, "found network " + found.networkId);
+            WifiConfiguration sparse = new WifiConfiguration();
+            sparse.networkId = found.networkId;
+            sparse.preSharedKey = "\""+this.password+"\"";
+            //Log.d(LOG_TAG,sparse.toString());
+            networkId = manageWifi.updateNetwork(sparse);
+            if(networkId <0) {
+                snackbar = Snackbar.make(getView(), "Cannot edit WiFi connection " + ssid + "- locked by device owner", Snackbar.LENGTH_LONG);
+                snackbar.show();
+                TextView text =
+                        (TextView) snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);
+                text.setTextColor(getResources().getColor(R.color.accent));
+                Log.d(LOG_TAG, "unable to update " + networkId);
+                newConnection = false;
+                manageWifi.reassociate();
+                return;
+            }
+        }
 
+        Log.d(LOG_TAG, "Inserted/Modified network " + networkId);
+        if (networkId < 0)
+            Log.d(LOG_TAG, "FAILURE_ADDING_NETWORK_CONFIG");
+
+
+
+
+        newConnection = true;
+        if(!manageWifi.saveConfiguration())
+            Log.d(LOG_TAG, "FAILURE_SAVING_NETWORK_CONFIGURATION");
+
+        // Try to disable the current network and start a new one.
+        if (!manageWifi.enableNetwork(networkId, true))
+            Log.d(LOG_TAG, "FAILURE_STARTING_NEW_NETWORK");
+        manageWifi.reassociate();
     }
 
-    private void connectionEstablished (){
-        if(snackbar != null) {
+    private WifiConfiguration findNetworkInExistingConfig(String ssid) {
+        List<WifiConfiguration> existingConfigs = manageWifi.getConfiguredNetworks();
+        for (WifiConfiguration existingConfig : existingConfigs) {
+            if (existingConfig.SSID.equals(ssid)) {
+                return existingConfig;
+            }
+        }
+        return null;
+    }
+
+
+    private void connectionEstablished() {
+        if (snackbar != null) {
             snackbar.dismiss();
             snackbar = Snackbar.make(getView(), "connection established \"" + ssid + "\"", Snackbar.LENGTH_SHORT);
             snackbar.show();
             TextView text =
-                    (TextView)snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);
+                    (TextView) snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);
             text.setTextColor(getResources().getColor(R.color.icons));
             mAdapter.setListEnabled(true);
         }
 
-        Realm realm = Realm.getDefaultInstance();
-        NetworkItem persistHere = realm.where(NetworkItem.class).equalTo(NetworkItem.FIELDNAME_SSID, ssid.toString()).findFirst();
-        if(persistHere !=null) {
-            realm.beginTransaction();
-            persistHere.setPassword(password.toString());
-            realm.commitTransaction();
-            mAdapter.notifyDataSetChanged();
-        }
-
+        mAdapter.persistPassword(""+ssid,""+password);
 
     }
 
 
-    @Override
-    public void onPause() {
-        //Log.d(LOG_TAG, "unregister");
-        getActivity().unregisterReceiver(wifiReceiver);
-        super.onPause();
-    }
-
-    @Override
-    public void onResume() {
-        //Log.d(LOG_TAG, "register");
-        super.onResume();
-        getActivity().registerReceiver(wifiReceiver, intentFilter);
-    }
 
     private void initiateRefresh() {
         manageWifi.startScan();
     }
 
-    boolean tryingToConnect =false;
+    boolean tryingToConnect = false;
 
     public class WifiReceiver extends BroadcastReceiver {
         @Override
@@ -216,28 +228,15 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                 List<ScanResult> availableNetworkList = manageWifi.getScanResults();
                 //Log.d(LOG_TAG, availableNetworkList.size() + " results recieved");
 
-                Realm realm = Realm.getDefaultInstance();
-
-                for (ScanResult network : availableNetworkList) {
-                    if (network.level < NetworkItem.MIN_SIGNAL_LEVEL)
-                        continue;
-                    final NetworkItem savedNetwork = realm.where(NetworkItem.class).equalTo(NetworkItem.FIELDNAME_SSID, network.SSID).findFirst();
-                    if (savedNetwork == null) {
-                        createNetworkItemFromBroadcast(realm, network);
-
-                    } else {
-                        //update level
-                        realm.beginTransaction();
-                        savedNetwork.setLevel(network.level);
-                        realm.commitTransaction();
-                    }
-
-                }
-                mAdapter.updateData(realm.where(NetworkItem.class).findAll().sort(NetworkItem.FIELDNAME_LEVEL, Sort.DESCENDING));
-                mAdapter.notifyDataSetChanged();
+                mAdapter.synchronizeData(availableNetworkList);
                 setRefreshing(false);
 
             } else if (intent.getAction().equals(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION)) {
+
+                if(!manageWifi.getConnectionInfo().getSSID().equals("\""+AvailableNetworksFragment.this.ssid+"\"")){
+
+                    return;
+                }
 
                 /**
                  * FOR DEBUGGING: full supplication stats changes shown
@@ -250,22 +249,24 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                 if (newConnection && !ssid.equals("")) {
 
                     snackbar = Snackbar.make(getView(), "Connecting to \"" + ssid + "\" with password: " + password, Snackbar.LENGTH_INDEFINITE)
-                            .setAction("CANCEL", new  View.OnClickListener() {
-                        @Override
-                        public void onClick (View v){
-                            mAdapter.setListEnabled(true);
-                            cancelAllConnections();
-                        }
-                    });
+                            .setAction("CANCEL", new View.OnClickListener() {
+                                @Override
+                                public void onClick(View v) {
+                                    mAdapter.setListEnabled(true);
+
+                                }
+                            });
                     TextView text =
-                            (TextView)snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);
+                            (TextView) snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);
                     text.setTextColor(getResources().getColor(R.color.icons));
 
-                    Log.d(LOG_TAG,((TextView)snackbar.getView().findViewById(android.support.design.R.id.snackbar_text)).getText().toString());
+                    Log.d(LOG_TAG, ((TextView) snackbar.getView().findViewById(android.support.design.R.id.snackbar_text)).getText().toString());
                     snackbar.show();
                     newConnection = false;
                     tryingToConnect = true;
                     mAdapter.setListEnabled(false);
+
+                    return;
                 }
 
                 switch (state) {
@@ -281,7 +282,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                         break;
                     case COMPLETED:
                         Log.i(LOG_TAG, "Connected");
-                        if(tryingToConnect) {
+                        if (tryingToConnect) {
                             AvailableNetworksFragment.this.connectionEstablished();
                             tryingToConnect = false;
                         }
@@ -300,17 +301,6 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                         break;
                     case INACTIVE:
                         Log.i(LOG_TAG, "INACTIVE");
-                        //Something went wrong:
-                        if(snackbar != null && snackbar.isShown()) {
-                            snackbar.dismiss();
-                            snackbar = Snackbar.make(getView(), "failed to enable network \"" + ssid + "\"", Snackbar.LENGTH_LONG);
-                            TextView text =
-                                    (TextView)snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);
-                            text.setTextColor(getResources().getColor(R.color.icons));
-                            snackbar.show();
-                            mAdapter.setListEnabled(true);
-                            tryingToConnect = false;
-                        }
                         break;
                     case INTERFACE_DISABLED:
                         Log.i(LOG_TAG, "INTERFACE_DISABLED");
@@ -331,7 +321,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                 }
                 int error = intent.getIntExtra(WifiManager.EXTRA_SUPPLICANT_ERROR, -1);
                 if (error != -1 && !ssid.equals("")) {
-                    if(snackbar!= null)
+                    if (snackbar != null)
                         snackbar.dismiss();
                     mAdapter.setListEnabled(true);
                     ConnectionFailedDialogFragment dialog = new ConnectionFailedDialogFragment();
@@ -341,7 +331,8 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                     dialog.setArguments(args);
                     dialog.setTargetFragment(AvailableNetworksFragment.this, AvailableNetworksFragment.SCAN_REQUEST_CODE);
                     dialog.show(getActivity().getSupportFragmentManager(), "dialog");
-                    tryingToConnect=false;
+
+                    tryingToConnect = false;
 
                 }
 
@@ -349,9 +340,9 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
                     Snackbar.make(getView(), "Connected to " + ssid, Snackbar.LENGTH_LONG)
                             .setAction("Action", null).show();
                     TextView text =
-                            (TextView)snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);
+                            (TextView) snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);
                     text.setTextColor(getResources().getColor(R.color.icons));
-                    tryingToConnect=false;
+                    tryingToConnect = false;
                 }
             }
 
@@ -359,15 +350,21 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
     }
 
 
-    private void createNetworkItemFromBroadcast(Realm realm, ScanResult network) {
-        NetworkItem item = new NetworkItem();
-        item.setLevel(network.level);
-        item.setSSID(network.SSID);
-        item.setPassword("");
 
 
-        realm.beginTransaction();
-        realm.copyToRealm(item); // Persist unmanaged objects
-        realm.commitTransaction();
+    private WifiConfiguration getNewWifiConfig() {
+        WifiConfiguration wifiConfig = new WifiConfiguration();
+
+        wifiConfig.allowedAuthAlgorithms.clear();
+        wifiConfig.allowedGroupCiphers.clear();
+        wifiConfig.allowedKeyManagement.clear();
+        wifiConfig.allowedPairwiseCiphers.clear();
+        wifiConfig.allowedProtocols.clear();
+
+
+        wifiConfig.preSharedKey = "\""+this.password+"\"";
+        wifiConfig.SSID = "\""+this.ssid+"\"";
+
+        return wifiConfig;
     }
 }
