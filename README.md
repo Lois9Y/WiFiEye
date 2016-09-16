@@ -51,7 +51,7 @@ As per API Level 23
 
 This seems to generate some issues when the application attempts to  in the case that a WiFi Network, already known to the device.
 
-Changes in WifiConfigurations are sometimes discarded by the WifiManager, although the issue couldn't be generated consistently. Further investigation required. 
+Changes in WifiConfigurations are sometimes discarded by the WifiManager, although the issue couldn't be generated consistently. Further investigation is required. 
 Check out the Debug-Log tagged "WifiReciever" for particulars of the situation. 
 
 #### Potential Development
@@ -74,10 +74,15 @@ As this is a proof of concept, no encryption has been employed for storing scann
 
 ## Dependencies / Sources
 
- * Realm Database used. See <https://github.com/realm/realm-java>
+Backend:
+
+ * Realm used. See <https://github.com/realm/realm-java>
+ 
+UI:
+ 
  * SwipeRefreshListFragment: See `com.example.android.swiperefreshlistfragment`
  * SlidingTabLayout & SlidingTabStrip: See `com.google.samples.apps.iosched.ui.widget`
 
 ## License
 
-A short snippet describing the license (MIT, Apache, etc.)
+MIT

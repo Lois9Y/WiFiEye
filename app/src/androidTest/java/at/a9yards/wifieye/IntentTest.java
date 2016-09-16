@@ -73,7 +73,7 @@ public class IntentTest {
         onView(allOf(withChild(withText(MockData.ssid2)),isDisplayed())).perform(click());
         intended(expectedIntent);
         //snackbar
-        onView(allOf(withId(android.support.design.R.id.snackbar_text),withText(containsString("Cannot edit WiFi connection " + MockData.ssid2 )))).check(matches(isDisplayed()));
+        onView(allOf(withId(android.support.design.R.id.snackbar_text),withText(containsString("Cannot edit WiFi connection: " + MockData.ssid2 )))).check(matches(isDisplayed()));
     }
 
     @Test
