@@ -1,14 +1,19 @@
 package at.a9yards.wifieye;
 
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
+import android.os.Build;
+import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.util.Log;
 import android.view.View;
@@ -23,7 +28,6 @@ import io.realm.Realm;
 import com.example.android.swiperefreshlistfragment.SwipeRefreshListFragment;
 
 
-
 import java.util.List;
 
 /**
@@ -36,6 +40,8 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
     public static final int SCAN_REQUEST_CODE = 101;
     public static final String SSID_FOR_SCAN = "ssid_for_scan";
     public static final String PASSWORD_SCAN_RESULT = "password_scan_result";
+    private static final int PERMISSIONS_REQUEST_CODE_ACCESS_COARSE_LOCATION = 1001;
+    private static final int PERMISSIONS_REQUEST_CAMERA = 1002;
 
     private WifiReceiver wifiReceiver;
     private IntentFilter intentFilter;
@@ -51,6 +57,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
         super.onCreate(savedInstanceState);
 
     }
+
     @Override
     public void onPause() {
         getActivity().unregisterReceiver(wifiReceiver);
@@ -60,7 +67,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
     @Override
     public void onResume() {
         super.onResume();
-        snackbar = Snackbar.make(getView(), R.string.snackbar_dummy,Snackbar.LENGTH_SHORT);
+        snackbar = Snackbar.make(getView(), R.string.snackbar_dummy, Snackbar.LENGTH_SHORT);
         getActivity().registerReceiver(wifiReceiver, intentFilter);
     }
 
@@ -74,6 +81,37 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
             mAdapter = new AvailableNetworksAdapter(getActivity(), realm.where(NetworkItem.class).findAll());
             setListAdapter(mAdapter);
         }
+        setUpWifiReciever();
+
+
+        setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                wifiReceiver.initiateRefresh();
+            }
+        });
+
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+         ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED ) {
+            Log.d(LOG_TAG,"requesting WIFI permissions");
+
+            ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
+                    PERMISSIONS_REQUEST_CODE_ACCESS_COARSE_LOCATION);
+
+            //After this point you wait for callback in onRequestPermissionsResult(int, String[], int[]) overriden method
+
+        } else {
+            Log.d(LOG_TAG,"no Runtime Permissions");
+            //setUpWifiReciever();
+            wifiReceiver.initiateRefresh();
+            //do something, permission was previously granted; or legacy device
+        }
+
+
+
+    }
+
+    private void setUpWifiReciever(){
         if (wifiReceiver == null) {
 
             wifiReceiver = new WifiReceiver(this.getActivity());
@@ -84,14 +122,26 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
             intentFilter.addAction(WifiManager.SUPPLICANT_STATE_CHANGED_ACTION);
             getActivity().registerReceiver(wifiReceiver, intentFilter);
         }
+    }
 
-        setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
-            @Override
-            public void onRefresh() {
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSIONS_REQUEST_CODE_ACCESS_COARSE_LOCATION) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d(LOG_TAG,"WIFI permissions granted");
+                //setUpWifiReciever();
                 wifiReceiver.initiateRefresh();
             }
-        });
-        wifiReceiver.initiateRefresh();
+            else Log.d(LOG_TAG, "Permission denied");
+        }
+        if (requestCode == PERMISSIONS_REQUEST_CAMERA) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Intent i = new Intent(getActivity(), ScanActivity.class);
+                i.putExtra(SSID_FOR_SCAN, ssid);
+                startActivityForResult(i, SCAN_REQUEST_CODE);
+            }
+        }
     }
 
     @Override
@@ -102,12 +152,20 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
         if (item.isPasswordAvailable()) {
             password = item.getPassword();
             ssid = item.getSSID();
-            this.wifiReceiver.tryNewWifiConnection(""+ssid,""+password);
+            this.wifiReceiver.tryNewWifiConnection("" + ssid, "" + password);
 
         } else {
-            Intent i = new Intent(getActivity(), ScanActivity.class);
-            i.putExtra(SSID_FOR_SCAN, mAdapter.getItem(position).getSSID());
-            startActivityForResult(i, SCAN_REQUEST_CODE);
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                    ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED ) {
+
+
+                ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.CAMERA},
+                        PERMISSIONS_REQUEST_CAMERA);
+            }else {
+                Intent i = new Intent(getActivity(), ScanActivity.class);
+                i.putExtra(SSID_FOR_SCAN, mAdapter.getItem(position).getSSID());
+                startActivityForResult(i, SCAN_REQUEST_CODE);
+            }
         }
     }
 
@@ -119,14 +177,14 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
             password = data.getExtras().getString(PASSWORD_SCAN_RESULT);
             ssid = data.getExtras().getString(SSID_FOR_SCAN);
 
-            this.wifiReceiver.tryNewWifiConnection(""+ssid,""+password);
+            this.wifiReceiver.tryNewWifiConnection("" + ssid, "" + password);
         }
     }
 
     private void connectionEstablished() {
         if (snackbar != null) {
             snackbar.dismiss();
-            snackbar = Snackbar.make(getView(), String.format(getResources().getString(R.string.snackbar_connection_established),ssid), Snackbar.LENGTH_SHORT);
+            snackbar = Snackbar.make(getView(), String.format(getResources().getString(R.string.snackbar_connection_established), ssid), Snackbar.LENGTH_SHORT);
             snackbar.show();
             TextView text =
                     (TextView) snackbar.getView().findViewById(android.support.design.R.id.snackbar_text);
@@ -138,7 +196,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
     }
 
-    private WifiReceiver.OnWifiReceiverListener wifiListener = new WifiReceiver.OnWifiReceiverListener(){
+    private WifiReceiver.OnWifiReceiverListener wifiListener = new WifiReceiver.OnWifiReceiverListener() {
         @Override
         public void onScansAvailable(List<ScanResult> scanResults) {
             mAdapter.synchronizeData(scanResults);
@@ -147,7 +205,7 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
         @Override
         public void onNewWifiConnectionCreated() {
-            snackbar = Snackbar.make(getView(), String.format(getResources().getString(R.string.snackbar_connecting),ssid,password), Snackbar.LENGTH_INDEFINITE)
+            snackbar = Snackbar.make(getView(), String.format(getResources().getString(R.string.snackbar_connecting), ssid, password), Snackbar.LENGTH_INDEFINITE)
                     .setAction(getResources().getString(R.string.button_text_cancel), new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
@@ -166,11 +224,11 @@ public class AvailableNetworksFragment extends SwipeRefreshListFragment {
 
         @Override
         public void onNewWifiConnectionFailed() {
-            snackbar = Snackbar.make(getView(), String.format(getResources().getString(R.string.snackbar_connection_failure),ssid), Snackbar.LENGTH_INDEFINITE)
+            snackbar = Snackbar.make(getView(), String.format(getResources().getString(R.string.snackbar_connection_failure), ssid), Snackbar.LENGTH_INDEFINITE)
                     .setAction(getResources().getString(R.string.button_text_retry), new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
-                            AvailableNetworksFragment.this.wifiReceiver.tryNewWifiConnection(""+ssid,""+password);
+                            AvailableNetworksFragment.this.wifiReceiver.tryNewWifiConnection("" + ssid, "" + password);
                         }
                     });
             snackbar.show();

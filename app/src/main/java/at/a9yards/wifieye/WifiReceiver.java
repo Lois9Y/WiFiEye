@@ -76,7 +76,7 @@ public class WifiReceiver extends BroadcastReceiver {
         if (intent.getAction().equals(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)) {
 
             List<ScanResult> availableNetworkList = mWifiManager.getScanResults();
-            //Log.d(LOG_TAG, availableNetworkList.size() + " results recieved");
+            Log.d(LOG_TAG, availableNetworkList.size() + " results recieved");
 
             listener.onScansAvailable(availableNetworkList);
 
@@ -189,7 +189,9 @@ public class WifiReceiver extends BroadcastReceiver {
 
 
     public void initiateRefresh() {
-        mWifiManager.startScan();
+        Log.d(LOG_TAG,"refreshing connections");
+        if(mWifiManager.startScan())Log.d(LOG_TAG,"scan started");
+        else Log.d(LOG_TAG,"scan failed");
     }
 
 
