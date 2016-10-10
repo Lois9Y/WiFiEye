@@ -2,14 +2,14 @@ apply plugin: 'com.android.application'
 apply plugin: 'realm-android'
 
 android {
-    compileSdkVersion 23
-    buildToolsVersion "24.0.1"
+    compileSdkVersion 24
+    buildToolsVersion "24.0.2"
 
 
     defaultConfig {
         applicationId "at.a9yards.wifieye"
         minSdkVersion 15
-        targetSdkVersion 23
+        targetSdkVersion 24
         versionCode 1
         versionName "1.0"
 
@@ -29,7 +29,7 @@ android {
 
 
 ext {
-    supportLibVersion = '24.0.0'  // variable that can be referenced to keep support libs consistent
+    supportLibVersion = '24.2.1'  // variable that can be referenced to keep support libs consistent
 }
 
 dependencies {
